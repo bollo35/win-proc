@@ -47,7 +47,7 @@ Process::ErrorCode Process::start() {
 	}
 
 	// keep the read handle from being inherited (child doesn't need to read it's own output)
-	if (!SetHandleInformation(_stdout_read, HANDLE_FLAG_INHERIT, 0)) {
+	if (!SetHandleInformation(_stderr_read, HANDLE_FLAG_INHERIT, 0)) {
 		error_code = STDERR_NOINHERIT_FAIL;
 		goto pipe_fail;
 	}
