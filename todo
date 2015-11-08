@@ -1,5 +1,4 @@
-Progression:
-------------
-
 1. Launch an executable [x]
 2. Write to it's standard input / read from it's output [x]
+3. Do more thorough error checking and reporting
+4. Make more similar to Qt's QProcess class?

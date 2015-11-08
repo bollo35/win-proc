@@ -28,6 +28,9 @@ class Process {
 
 		Process::ErrorCode start();
 		bool ended();
+		bool wait_until_finished(int time_out_ms);
+		// TODO: this.
+		//bool wait_until_started(int time_out_ms);
 
 		size_t write_stdin(std::string input);
 		std::string read_stdout();
@@ -48,6 +51,7 @@ class Process {
 		HANDLE                       _stdout_write;
 		HANDLE                       _stderr_read;
 		HANDLE                       _stderr_write;
+		PROCESS_INFORMATION          _pi;
 };
 
 

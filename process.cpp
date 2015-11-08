@@ -8,17 +8,17 @@ Process::Process(std::string command, std::vector<std::string> args, std::string
 }
 
 Process::~Process() {
+  	CloseHandle(_pi.hProcess);
 	close_streams();
 }
 Process::ErrorCode Process::start() {
-	Process::ErrorCode error_code = NO_ERR;
+	Process::ErrorCode error_code {NO_ERR};
 	// TODO: make sure pipe variables are not currently in use
 	SECURITY_ATTRIBUTES sa;
 	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
 	sa.bInheritHandle = TRUE; // makes sure pipe handles are inherited
 	sa.lpSecurityDescriptor = NULL;
 
-	// create pipe for child stdin
 	if (!CreatePipe(&_stdin_read, &_stdin_write, &sa, 0)) {
 		error_code = STDIN_CREATE_PIPE_FAIL;
 		goto pipe_fail;
@@ -30,7 +30,6 @@ Process::ErrorCode Process::start() {
 		goto pipe_fail;
 	}
 
-	// create pipe for child stdout
 	if (!CreatePipe(&_stdout_read, &_stdout_write, &sa, 0)) {
 		error_code = STDOUT_CREATE_PIPE_FAIL;
 		goto pipe_fail;
@@ -42,7 +41,6 @@ Process::ErrorCode Process::start() {
 		goto pipe_fail;
 	}
 
-	// create pipe for child stderr
 	if (!CreatePipe(&_stderr_read, &_stderr_write, &sa, 0)) {
 		error_code = STDERR_CREATE_PIPE_FAIL;
 		goto pipe_fail;
@@ -65,12 +63,11 @@ pipe_fail:
 
 Process::ErrorCode Process::create_process() {
 	Process::ErrorCode error_code = NO_ERR;
-	PROCESS_INFORMATION pi;
 	STARTUPINFO si;
 	BOOL success = FALSE;
 
 	// TODO: check return codes if any
-	ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+	ZeroMemory(&_pi, sizeof(PROCESS_INFORMATION));
 	ZeroMemory(&si, sizeof(STARTUPINFO));
 
 	si.cb = sizeof(STARTUPINFO);
@@ -90,7 +87,7 @@ Process::ErrorCode Process::create_process() {
 			NULL,
 			(TCHAR*) _working_dir.c_str(), // FIXME: don't cast
 			&si,
-			&pi);
+			&_pi);
 
 	if (!success) {
 		error_code = CREATE_PROCESS_FAIL;
@@ -101,6 +98,14 @@ Process::ErrorCode Process::create_process() {
 // TODO
 bool Process::ended() {
 	return true;
+}
+
+// TODO: abstract INFINITE away from user?
+// To wait forever set to INFINITE
+// true indicates the process finished before the timeout
+// false indicates any other condition (error, already finished, etc)
+bool Process::wait_until_finished(int time_out_ms) {
+	return WaitForSingleObject(_pi.hProcess, (DWORD) time_out_ms) == WAIT_OBJECT_0;
 }
 
 size_t Process::write_stdin(std::string input) {
@@ -124,8 +129,8 @@ std::string Process::read_stderr() {
 std::string Process::read_output_stream(HANDLE stream) {
 	DWORD read, available;
 	BOOL success = FALSE;
-	const DWORD BUFSIZE = 4096;
-	std::string output = "";
+	const DWORD BUFSIZE {4096};
+	std::string output {};
 	TCHAR buf[BUFSIZE];
 	while ((available = (DWORD) bytes_available(stream)) > 0) {
 		// TODO: read function docs
@@ -137,8 +142,8 @@ std::string Process::read_output_stream(HANDLE stream) {
 }
 
 size_t Process::bytes_available(HANDLE stream) {
-	BOOL success = FALSE;
-	DWORD available;
+	BOOL success {FALSE};
+	DWORD available{};
 
 	// TODO: read docs on function
 	success = PeekNamedPipe(stream, NULL, 0, NULL, &available, NULL);
@@ -148,22 +153,23 @@ size_t Process::bytes_available(HANDLE stream) {
 	return (size_t) available;
 }
 
-// TODO: make pipe closing more granular, and only attempt to close open handles
 Process::ErrorCode Process::close_streams() {
 	Process::ErrorCode error_code = NO_ERR;
-	if(!CloseHandle(_stdin_read)   ||
-		 !CloseHandle(_stdin_write)  ||
-		 !CloseHandle(_stdout_read)  ||
-		 !CloseHandle(_stdout_write) ||
-		 !CloseHandle(_stderr_read)  ||
-		 !CloseHandle(_stderr_write)) 
+	bool error = false;
+	error = !CloseHandle(_stdin_read);
+	error = !CloseHandle(_stdin_write) || error;
+	error =	!CloseHandle(_stdout_read) || error;
+	error = !CloseHandle(_stdout_write) || error;
+	error = !CloseHandle(_stderr_read)  || error;
+	error = !CloseHandle(_stderr_write) || error;
+	if (error)
 		error_code = ERROR_CLOSING_PIPES;
 
 	return error_code;
 }
 
 std::string Process::interpret_error(Process::ErrorCode ec) {
-	std::string error = "";
+	std::string error {};
 	switch (ec) {
 			case STDIN_CREATE_PIPE_FAIL:
 				error = "failed while creating stdin pipe";
