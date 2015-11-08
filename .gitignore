@@ -1,0 +1,6 @@
+*.obj
+old
+*.swp
+*~
+*.exe
+ERRORS
