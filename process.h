@@ -1,10 +1,14 @@
 #ifndef process_h
 #define process_h
-
+// these headers must be included in this order.
 #include <windows.h>
 #include <tchar.h>
 #include <strsafe.h>
+
+#include <chrono>
+#include <cstdint>
 #include <string>
+#include <thread>
 #include <vector>
 
 class Process {
@@ -23,13 +27,18 @@ class Process {
 			ERROR_CLOSING_PIPES,
 		};
 
-		Process(std::string command, std::vector<std::string> args, std::string working_dir);
+		Process();
 		~Process();
 
-		Process::ErrorCode start();
+		Process::ErrorCode start(std::string command, std::string working_dir="");
 		bool ended();
-		bool wait_until_finished(int time_out_ms);
-		// TODO: this.
+		bool wait_until_finished(uint32_t time_out_ms);
+		std::string command();
+		std::string working_directory();
+		// can't see a way to actually do this, it would amount
+		// to just pausing and hoping it has started
+		// i think waiting around ~30ms would work, since 
+		// the windows scheduler timeslice seems to be around 15ms
 		//bool wait_until_started(int time_out_ms);
 
 		size_t write_stdin(std::string input);
@@ -38,12 +47,11 @@ class Process {
 		static std::string interpret_error(Process::ErrorCode);
 
 	private:
-		Process::ErrorCode            create_process();
+		Process::ErrorCode           create_process();
 		std::string                  read_output_stream(HANDLE stream);
 		size_t                       bytes_available(HANDLE stream);
 		Process::ErrorCode           close_streams();
 		std::string                  _command;
-		std::vector<std::string>     _args;
 		std::string                  _working_dir;
 		HANDLE                       _stdin_read;
 		HANDLE                       _stdin_write;

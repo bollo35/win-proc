@@ -1,19 +1,19 @@
 #include "process.h"
 
-Process::Process(std::string command, std::vector<std::string> args, std::string working_dir) {
-	// TODO: split it up so can be called with command in one string
-	_command = command;
-	_args = args;
-	_working_dir = working_dir;
+Process::Process() {
+  _command = "";
+  _working_dir = "";
 }
 
 Process::~Process() {
   	CloseHandle(_pi.hProcess);
 	close_streams();
 }
-Process::ErrorCode Process::start() {
+
+Process::ErrorCode Process::start(std::string command, std::string working_dir) {
 	Process::ErrorCode error_code {NO_ERR};
-	// TODO: make sure pipe variables are not currently in use
+	// make sure pipe variables are not in use
+	close_streams();
 	SECURITY_ATTRIBUTES sa;
 	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
 	sa.bInheritHandle = TRUE; // makes sure pipe handles are inherited
@@ -52,11 +52,12 @@ Process::ErrorCode Process::start() {
 		goto pipe_fail;
 	}
 
+	_command = command;
+	_working_dir = working_dir;
 	error_code = create_process();
 	return error_code;
 
 pipe_fail:
-	// TODO: clean up pipes if they don't exist any more
 	close_streams();
 	return error_code;
 }
@@ -66,7 +67,6 @@ Process::ErrorCode Process::create_process() {
 	STARTUPINFO si;
 	BOOL success = FALSE;
 
-	// TODO: check return codes if any
 	ZeroMemory(&_pi, sizeof(PROCESS_INFORMATION));
 	ZeroMemory(&si, sizeof(STARTUPINFO));
 
@@ -104,8 +104,16 @@ bool Process::ended() {
 // To wait forever set to INFINITE
 // true indicates the process finished before the timeout
 // false indicates any other condition (error, already finished, etc)
-bool Process::wait_until_finished(int time_out_ms) {
+bool Process::wait_until_finished(uint32_t time_out_ms) {
 	return WaitForSingleObject(_pi.hProcess, (DWORD) time_out_ms) == WAIT_OBJECT_0;
+}
+
+std::string Process::command() {
+	return _command;
+}
+
+std::string Process::working_directory() {
+	return _working_dir;
 }
 
 size_t Process::write_stdin(std::string input) {
